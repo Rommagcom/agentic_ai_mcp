@@ -5,27 +5,26 @@ import random
 
 app = Flask(__name__)
 
-# Global storage for simulated flights, generated once at startup
-_all_simulated_flights = []
-
-def generate_dummy_flights(start_date: datetime, end_date: datetime):
-    """Generates dummy flight data for a given date range with weather info."""
+# Simulated flight data generation
+def generate_dummy_flights(date_from, date_to):
+    """Generates dummy flight data for a given date range."""
     flights = []
-    current_date = start_date
+    current_date = date_from
     flight_id_counter = 1000
 
-    weather_conditions = ["Clear", "Cloudy", "Rainy", "Snowy", "Foggy", "Sunny"]
-    
-    while current_date <= end_date:
-        num_flights_per_day = random.randint(3, 7) # 3 to 7 flights per day
+    # Example weather and temperature data
+    weather_conditions = ['Sunny', 'Cloudy', 'Rainy', 'Snowy', 'Windy']
+    temperature_range = {'min': -10, 'max': 35}  # Temperature range in Celsius
+
+    while current_date <= date_to:
+        num_flights_per_day = random.randint(3, 7)  # 3 to 7 flights per day
         for _ in range(num_flights_per_day):
             flight_id_counter += 1
             # Generate random flight number
-            airline_prefix = random.choice(['SU', 'KC', 'LH', 'TK', 'BA'])
-            flight_number = f"{airline_prefix}{random.randint(100, 999)}"
+            flight_number = f"{random.choice(['SS', 'KC', 'LH', 'TK'])}{random.randint(100, 999)}"
             
             # Generate random origin/destination
-            airports = ['ALA', 'MOW', 'DXB', 'IST', 'AMS', 'FRA', 'CDG', 'DEL', 'JFK', 'LHR']
+            airports = ['ALA', 'MOW', 'DXB', 'IST', 'AMS', 'FRA', 'CDG', 'DEL']
             origin = random.choice(airports)
             destination = random.choice([a for a in airports if a != origin])
 
@@ -36,12 +35,12 @@ def generate_dummy_flights(start_date: datetime, end_date: datetime):
 
             # Generate random weather and temperature
             weather = random.choice(weather_conditions)
-            temperature = f"{random.randint(-10, 35)}°C" # Example temperature range
+            temperature = f"{random.randint(temperature_range['min'], temperature_range['max'])}°C"
 
             flights.append({
                 "flightId": flight_id_counter,
                 "flightNumber": flight_number,
-                "flightDate": flight_datetime.isoformat(), # ISO format for easy parsing
+                "flightDate": flight_datetime.isoformat(),  # ISO format for easy parsing
                 "origin": origin,
                 "destination": destination,
                 "weather": weather,
@@ -50,21 +49,12 @@ def generate_dummy_flights(start_date: datetime, end_date: datetime):
         current_date += timedelta(days=1)
     return flights
 
-# Generate flights for a year range at server startup
-# This allows /get/flight/details to look up specific flights consistently
-_all_simulated_flights = generate_dummy_flights(
-    datetime.now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0) - timedelta(days=180), # 6 months back
-    datetime.now().replace(month=12, day=31, hour=23, minute=59, second=59, microsecond=999999) + timedelta(days=180) # 6 months forward
-)
-print(f"Generated {len(_all_simulated_flights)} dummy flights for simulation.")
-
-
 @app.route('/get/flights/infos', methods=['POST'])
 def get_flights_infos():
     """
-    Endpoint to get simulated flight information based on a date range.
-    Input: { "dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD" }
-    Output: { "flights": array, "metadata": { "source": string, "freshness": string } }
+    Endpoint to get simulated flight information based on a date range and optional city filters.
+    Input: { "dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD", "origin": "CityCode", "destination": "CityCode" }
+    Output: array of { "flightId": int, "flightNumber": string, "flightDate": datetime, "origin": string, "destination": string }
     """
     data = request.get_json()
     if not data:
@@ -72,84 +62,87 @@ def get_flights_infos():
 
     date_from_str = data.get('dateFrom')
     date_to_str = data.get('dateTo')
+    origin_filter = data.get('origin')  # Optional origin city filter
+    destination_filter = data.get('destination')  # Optional destination city filter
 
     if not date_from_str or not date_to_str:
         return jsonify({"error": "Missing 'dateFrom' or 'dateTo' in request"}), 400
 
     try:
         # Parse dates from string (assuming YYYY-MM-DD format)
-        date_from = datetime.strptime(date_from_str, '%Y-%m-%d').date()
-        date_to = datetime.strptime(date_to_str, '%Y-%m-%d').date()
+        date_from = datetime.strptime(date_from_str, '%Y-%m-%d')
+        date_to = datetime.strptime(date_to_str, '%Y-%m-%d')
     except ValueError:
         return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
 
     # Ensure dateFrom is not after dateTo
     if date_from > date_to:
         return jsonify({"error": "'dateFrom' cannot be after 'dateTo'"}), 400
-    
-    # Filter flights from the pre-generated list
-    filtered_flights = []
-    for flight in _all_simulated_flights:
-        flight_date_obj = datetime.fromisoformat(flight['flightDate']).date()
-        if date_from <= flight_date_obj <= date_to:
-            filtered_flights.append(flight)
 
-    response_metadata = {
-        "source": "Simulated Flight Schedule Database",
-        "freshness": datetime.now().isoformat() # Indicates when this data was generated/retrieved
-    }
+    # Simulate fetching data
+    flights = generate_dummy_flights(date_from, date_to)
 
-    return jsonify({"flights": filtered_flights, "metadata": response_metadata}), 200
+    # Apply filters for origin and destination if provided
+    if origin_filter:
+        flights = [flight for flight in flights if flight['origin'].lower() == origin_filter.lower()]
+    if destination_filter:
+        flights = [flight for flight in flights if flight['destination'].lower() == destination_filter.lower()]
+
+    return jsonify(flights), 200
 
 @app.route('/get/flight/details', methods=['POST'])
 def get_flight_details():
     """
-    Endpoint to get specific flight details by ID or by flight number and date.
-    Input: { "flightId": int } OR { "flightNumber": string, "flightDate": "YYYY-MM-DD" }
-    Output: { "flight": object, "metadata": { "source": string, "freshness": string } }
+    Endpoint to get specific flight details based on flight number and date or origin, destination, and date.
+    Input: { "flightNumber": "SU123", "flightDate": "YYYY-MM-DD" }
+           OR { "origin": "CityCode", "destination": "CityCode", "flightDate": "YYYY-MM-DD" }
+    Output: { "flightId": int, "flightNumber": string, "flightDate": datetime, "origin": string, "destination": string, "weather": string, "temperature": string }
     """
     data = request.get_json()
     if not data:
         return jsonify({"error": "Invalid JSON input"}), 400
 
-    flight_id = data.get('flightId')
     flight_number = data.get('flightNumber')
     flight_date_str = data.get('flightDate')
+    origin = data.get('origin')
+    destination = data.get('destination')
 
-    found_flight = None
+    if not flight_date_str:
+        return jsonify({"error": "Missing 'flightDate' in request"}), 400
 
-    if flight_id is not None:
-        # Search by flightId
-        for flight in _all_simulated_flights:
-            if flight.get('flightId') == flight_id:
-                found_flight = flight
-                break
-    elif flight_number and flight_date_str:
-        # Search by flightNumber and flightDate
-        try:
-            target_date = datetime.strptime(flight_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({"error": "Invalid 'flightDate' format. Use YYYY-MM-DD"}), 400
+    try:
+        # Parse flight date from string
+        flight_date = datetime.strptime(flight_date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
 
-        for flight in _all_simulated_flights:
-            flight_date_obj = datetime.fromisoformat(flight['flightDate']).date()
-            if flight.get('flightNumber') == flight_number and flight_date_obj == target_date:
-                found_flight = flight
-                break
+    # Simulate fetching data
+    flights = generate_dummy_flights(flight_date, flight_date)
+
+    # Filter by flight number and date
+    if flight_number:
+        flights = [flight for flight in flights if flight['flightNumber'] == flight_number]
+
+    # Filter by origin, destination, and date
+    elif origin and destination:
+        flights = [flight for flight in flights if flight['origin'] == origin and flight['destination'] == destination]
+
     else:
-        return jsonify({"error": "Provide either 'flightId' or 'flightNumber' and 'flightDate'"}), 400
+        return jsonify({"error": "Either 'flightNumber' or 'origin' and 'destination' must be provided"}), 400
 
-    response_metadata = {
-        "source": "Simulated Flight Schedule Database",
-        "freshness": datetime.now().isoformat()
-    }
+    if not flights:
+        return jsonify({"error": "No flight found matching the criteria"}), 404
 
-    if found_flight:
-        return jsonify({"flight": found_flight, "metadata": response_metadata}), 200
-    else:
-        return jsonify({"error": "Flight not found"}), 404
+    # Add simulated weather and temperature data
+    for flight in flights:
+        flight['weather'] = "Sunny"  # Example weather data
+        flight['temperature'] = "25°C"  # Example temperature data
+
+    # Return the first matching flight (assuming one match is sufficient)
+    return jsonify(flights[0]), 200
+
 
 if __name__ == '__main__':
     # Run the server on localhost:5000
     # For production, use a more robust WSGI server like Gunicorn
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=False)

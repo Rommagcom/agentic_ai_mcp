@@ -1,16 +1,33 @@
-# ollama_agent.py
+from flask import Flask, request, jsonify
 import ollama
 from datetime import datetime, date, timedelta
-import re
 from mcp_client import MCPClient  # Import our custom client
 from typing import List, Dict, Optional, Tuple, Union
 
+# Initialize Flask app
+app = Flask(__name__)
+
 class OllamaFlightAgent:
-    def __init__(self, ollama_model: str = "qwen3:0.6b", mcp_base_url: str = "http://127.0.0.1:5000", ollama_base_url: str = "http://127.0.01:11434"):
+    def __init__(self, ollama_model: str = "qwen3:0.6b", mcp_base_url: str = "http://127.0.0.1:5000", ollama_base_url: str = "http://127.0.0.1:11434"):
         self.ollama_model = ollama_model
         self.mcp_client = MCPClient(mcp_base_url)
         self.ollama_base_url = ollama_base_url
-        ollama.configure(base_url=self.ollama_base_url)  # Configure Ollama to use the specified server
+
+        # Check if the model exists, and pull it if necessary
+        models = ollama.list()  # Get the list of models
+        if isinstance(models, list):  # Ensure models is a list
+            model_names = [model['name'] for model in models if isinstance(model, dict)]
+        else:
+            print("Unexpected response from ollama.list(). Ensure the library is working correctly.")
+            model_names = []
+
+        if self.ollama_model in model_names:
+            print(f"Model '{self.ollama_model}' exists in the list.")
+        else:
+            print(f"Model '{self.ollama_model}' does not exist. Pulling the model...")
+            ollama.pull(self.ollama_model)  # Pull the model if it doesn't exist
+            print(f"Model '{self.ollama_model}' has been pulled successfully.")
+
         print(f"Ollama Flight Agent initialized with model '{self.ollama_model}', MCP server '{mcp_base_url}', and Ollama server '{self.ollama_base_url}'")
 
     def _extract_query_parameters(self, query: str) -> Dict:
@@ -29,17 +46,19 @@ class OllamaFlightAgent:
         "This week" means from this Monday to this Sunday.
         "Next month" means the entire next calendar month.
 
-        If a specific flight ID is mentioned (e.g., "рейс с ID 1234"), extract 'flightId'.
-        If a specific flight number and date are mentioned (e.g., "рейс SU123 на 2025-06-05"), extract 'flightNumber' and 'flightDate'.
+        If a specific flight number - is alpha numeric value and date are mentioned (e.g., "рейс SU123 на 2025-06-05"), extract 'flightNumber' and 'flightDate'.
 
+        If a specific cities are mentioned (e.g., "из Алматы в Астану"), convert it to aitport code and extract 'origin' and 'destination'.
+        If both origin and destination details and date ranges are present, prioritize over all.
+        If only a date range is specified, extract 'dateFrom' and 'dateTo'.
         Prioritize specific flight details (ID or number/date) over date ranges if both are present.
         If no specific flight details or date range is specified, assume today as the date range.
 
-        Output the extracted parameters in JSON format.
-        Example outputs:
+        Output the extracted parameters in JSON format like this
+        example outputs:
         {{"dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD"}}
-        {{"flightId": 1234}}
-        {{"flightNumber": "SU123", "flightDate": "YYYY-MM-DD"}}
+        {{"flightNumber": "KC851", "flightDate": "YYYY-MM-DD"}}
+        {{"origin": "NQZ", destination": "ALA"
         {{}} (if no parameters found, implies today's date range by default)
 
         User query: "{query}"
@@ -72,126 +91,115 @@ class OllamaFlightAgent:
             return {"dateFrom": date.today(), "dateTo": date.today()}
 
     def process_query(self, user_query: str) -> str:
-        """
-        Processes a user query to get flight information using multi-step reasoning.
-        """
+        """Processes a user query to get flight information using multi-step reasoning."""
         print(f"\nUser: {user_query}")
-
-        # Step 1: Use Ollama to extract parameters from the user's query
         print("Agent: Extracting query parameters using Ollama...")
         params = self._extract_query_parameters(user_query)
         print(f"Agent: Detected parameters: {params}")
 
-        response_text = ""
+        # Check if sufficient parameters are provided for specific flight details
+        if 'flightNumber' in params and 'flightDate' in params and params['flightNumber'] and params['flightDate']:
+            return self._get_flight_details(params)
+        elif 'origin' in params and 'destination' in params and 'flightDate' in params and params['origin'] and params['destination'] and params['flightDate']:
+            return self._get_flight_details(params)
+        elif 'dateFrom' in params and 'dateTo' in params:
+            # If only a date range is provided, fetch flights for the date range
+            return self._get_flights_by_date_range(params)
+        else:
+            return "Извините, я не смог понять ваш запрос. Пожалуйста, уточните, какие рейсы вы ищете (по дате, номеру рейса, городу отправления или назначения)."
 
-        # Step 2: Decide which MCP endpoint to call based on extracted parameters (Multi-step reasoning)
-        if 'flightId' in params or ('flightNumber' in params and 'flightDate' in params):
-            # User is asking for specific flight details
-            flight_id = params.get('flightId')
-            flight_number = params.get('flightNumber')
-            flight_date = params.get('flightDate')
+    def _get_flight_details(self, params: Dict) -> str:
+        """Fetches specific flight details from the MCP server."""
+        flight_number = params.get('flightNumber')
+        flight_date = params.get('flightDate')
+        origin = params.get('origin')
+        destination = params.get('destination')
 
-            print(f"Agent: User requested specific flight details. Calling MCP server for details...")
-            flight_data = self.mcp_client.get_flight_details(
-                flight_id=flight_id, 
-                flight_number=flight_number, 
-                flight_date=flight_date
+        if flight_number and flight_date:
+            print(f"Agent: Fetching flight details for Number: {flight_number}, Date: {flight_date}...")
+            flight_data = self.mcp_client.get_flight_details(flight_number=flight_number, flight_date=flight_date)
+        elif origin and destination and flight_date:
+            print(f"Agent: Fetching flight details for Origin: {origin}, Destination: {destination}, Date: {flight_date}...")
+            flight_data = self.mcp_client.get_flight_details(origin=origin, destination=destination, flight_date=flight_date)
+        else:
+            return "Недостаточно данных для поиска рейса. Укажите номер рейса и дату или город отправления, назначения и дату."
+
+        if flight_data:
+            flight_datetime = datetime.fromisoformat(flight_data['flightDate'])
+            return f"""
+            Информация о рейсе {flight_data['flightNumber']} (ID: {flight_data['flightId']}):
+            Маршрут: {flight_data['origin']} -> {flight_data['destination']}
+            Дата и время: {flight_datetime.strftime('%Y-%m-%d %H:%M')}
+            Погода в пункте назначения: {flight_data['weather']}, Температура: {flight_data['temperature']}
+            """
+        else:
+            return "Извините, не удалось найти информацию по указанному рейсу. Пожалуйста, проверьте данные и попробуйте снова."
+
+    def _get_flights_by_date_range(self, params: Dict) -> str:
+        """
+        Retrieves flights information for a specific date range from the MCP server.
+        """
+        date_from = params['dateFrom']
+        date_to = params['dateTo']
+        origin = params.get('origin')
+        destination = params.get('destination')
+
+        print(f"Agent: User requested flights for a date range. Calling MCP server for general info...")
+        flights_data = self.mcp_client.get_flights_info(date_from, date_to, origin, destination)
+
+        if not flights_data:
+            return f"На период с {date_from.isoformat()} по {date_to.isoformat()} рейсов не найдено."
+
+        # Prepare flight data for LLM
+        flights_summary = []
+        for flight in flights_data:
+            flight_datetime = datetime.fromisoformat(flight.get('flightDate', '1970-01-01T00:00:00'))
+            weather = flight.get('weather', 'неизвестно')  # Fallback to 'неизвестно' if 'weather' is missing
+            temperature = flight.get('temperature', 'неизвестно')  # Fallback to 'неизвестно' if 'temperature' is missing
+            flights_summary.append(
+                f"Рейс {flight.get('flightNumber', 'неизвестно')} из {flight.get('origin', 'неизвестно')} "
+                f"в {flight.get('destination', 'неизвестно')} {flight_datetime.strftime('%Y-%m-%d %H:%M')} "
+                f"(Погода: {weather}, Темп: {temperature})"
             )
 
-            if flight_data:
-                flight_datetime = datetime.fromisoformat(flight_data['flightDate'])
-                response_text = f"""
-                Информация о рейсе {flight_data['flightNumber']} (ID: {flight_data['flightId']}):
-                Маршрут: {flight_data['origin']} -> {flight_data['destination']}
-                Дата и время: {flight_datetime.strftime('%Y-%m-%d %H:%M')}
-                Погода в пункте назначения: {flight_data['weather']}, Температура: {flight_data['temperature']}
-                """
-            else:
-                response_text = "Извините, не удалось найти информацию по указанному рейсу. Пожалуйста, проверьте ID рейса, номер рейса и дату."
-        elif 'dateFrom' in params and 'dateTo' in params:
-            # User is asking for a range of flights
-            date_from = params['dateFrom']
-            date_to = params['dateTo']
-
-            print(f"Agent: User requested flights for a date range. Calling MCP server for general info...")
-            flights_data = self.mcp_client.get_flights_info(date_from, date_to)
-
-            if not flights_data:
-                response_text = "Извините, не удалось получить информацию о рейсах. Возможно, сервер недоступен или произошла ошибка."
-            elif not flights_data: # Check again after potential error handling in client
-                response_text = f"На период с {date_from.isoformat()} по {date_to.isoformat()} рейсов не найдено."
-            else:
-                # Prepare flight data for LLM
-                flights_summary = []
-                for flight in flights_data:
-                    flight_datetime = datetime.fromisoformat(flight['flightDate'])
-                    flights_summary.append(
-                        f"Рейс {flight['flightNumber']} из {flight['origin']} в {flight['destination']} "
-                        f"{flight_datetime.strftime('%Y-%m-%d %H:%M')} (Погода: {flight['weather']}, Темп: {flight['temperature']})"
-                    )
-                
-                # Limit the number of flights sent to LLM to avoid context window issues
-                if len(flights_summary) > 10:
-                    flights_list_for_llm = "\n".join(flights_summary[:10]) + f"\n...и еще {len(flights_summary) - 10} рейсов."
-                else:
-                    flights_list_for_llm = "\n".join(flights_summary)
-
-                llm_prompt = f"""
-                Вы - полезный ассистент авиакомпании. Вам предоставлена информация о рейсах.
-                Сформируйте дружелюбный и информативный ответ для пользователя, который запросил рейсы на даты
-                с {date_from.isoformat()} по {date_to.isoformat()}.
-                Включите в ответ список найденных рейсов, указывая номер рейса, маршрут, дату/время, погоду и температуру.
-
-                Найденные рейсы:
-                {flights_list_for_llm}
-
-                Если рейсов не найдено, сообщите об этом.
-                """
-                print("Agent: Formatting response using Ollama...")
-                response_ollama = ollama.generate(model=self.ollama_model, prompt=llm_prompt, options={'temperature': 0.3})
-                response_text = response_ollama['response']
+        # Limit the number of flights sent to LLM to avoid context window issues
+        if len(flights_summary) > 10:
+            flights_list_for_llm = "\n".join(flights_summary[:10]) + f"\n...и еще {len(flights_summary) - 10} рейсов."
         else:
-            response_text = "Извините, я не смог понять ваш запрос. Пожалуйста, уточните, какие рейсы вы ищете (по дате, номеру рейса или ID)."
+            flights_list_for_llm = "\n".join(flights_summary)
 
-        return response_text
+        llm_prompt = f"""
+        Вы - полезный ассистент авиакомпании. Вам предоставлена информация о рейсах.
+        Сформируйте дружелюбный и информативный ответ для пользователя, который запросил рейсы на даты
+        с {date_from.isoformat()} по {date_to.isoformat()}.
+        Включите в ответ список найденных рейсов, указывая номер рейса, маршрут, дату/время, погоду и температуру.
 
-# Main execution
-if __name__ == "__main__":
+        Найденные рейсы:
+        {flights_list_for_llm}
 
-    models = ollama.list()
-    
-    model_names = [model['name'] for model in models]
+        Если рейсов не найдено, сообщите об этом.
+        """
+        print("Agent: Formatting response using Ollama...")
+        response_ollama = ollama.generate(model=self.ollama_model, prompt=llm_prompt, options={'temperature': 0.6})
+        return response_ollama.get('response', "Ошибка при форматировании ответа.")
 
-    if 'qwen3:0.6b' in model_names:
-        print("Model 'qwen3:0.6b' exists in the list.")
-    else:
-        ollama.pull('qwen3:0.6b')
-        print("Model 'qwen3:0.6b' does not exist in the list.")
+# Flask route to handle queries
+@app.route('/query', methods=['POST'])
+def query():
+    data = request.json
+    user_query = data.get('query', '')
+    if not user_query:
+        return jsonify({"error": "Query is required"}), 400
 
-    # Ensure your Ollama server is running and 'llama3' model is pulled.
-    # Ensure your mcp_server.py is running on http://127.0.0.1:5000.
-    
     agent = OllamaFlightAgent()
+    response = agent.process_query(user_query)
+    # Extract text after </think>
+    if "</think>" in response:
+        response = response.split("</think>", 1)[1].strip()
 
-    # Example queries demonstrating multi-step reasoning and new features
-    print(agent.process_query("Покажи мне рейсы на завтра."))
-    print(agent.process_query("Какие рейсы есть на эту неделю?"))
-    print(agent.process_query("Мне нужны рейсы с 2025-06-05 по 2025-06-07."))
-    print(agent.process_query("Есть ли рейсы на следующий месяц?"))
-    print(agent.process_query("Рейсы на сегодня."))
+    return jsonify({"response": response})
     
-    # --- New queries for specific flight details ---
-    # You might need to check your mcp_server.py output for actual flight IDs/numbers
-    # or adjust the dummy data generation range to ensure flights exist.
-    # For testing, you can temporarily hardcode an ID/number/date that you know exists.
-    
-    # Example: Assuming a flight with ID 1001 exists for today's date
-    print(agent.process_query("Расскажи мне про рейс с ID 1001.")) 
-    
-    # Example: Assuming flight SU123 exists on today's date
-    print(agent.process_query("Что известно про рейс SU123 на сегодня?"))
-    
-    # Example: Query for a non-existent flight
-    print(agent.process_query("Покажи детали рейса BA999 на 2025-12-25."))
 
-    print(agent.process_query("Найди рейсы на 2025-07-10."))
+# Run the Flask app
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
