@@ -1,0 +1,4 @@
+flask
+ollama
+requests
+python-dateutil

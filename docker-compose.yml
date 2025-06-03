@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  mcp_server:
+    image: python:3.9-slim
+    container_name: mcp_server
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "5000:5000"
+    command: >
+      sh -c "pip install -r requirements.txt && python mcp_server.py"
+    environment:
+      - FLASK_ENV=development
+
+  ollama_server:
+    image: ollama/ollama:latest
+    container_name: ollama_server
+    ports:
+      - "11434:11434"
+    command: ollama serve
+
+  ollama_agent:
+    image: python:3.9-slim
+    container_name: ollama_agent
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      - mcp_server
+      - ollama_server
+    command: >
+      sh -c "pip install -r requirements.txt && python ollama_agent.py"

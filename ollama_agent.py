@@ -2,14 +2,16 @@
 import ollama
 from datetime import datetime, date, timedelta
 import re
-from mcp_client import MCPClient # Import our custom client
+from mcp_client import MCPClient  # Import our custom client
 from typing import List, Dict, Optional, Tuple, Union
 
 class OllamaFlightAgent:
-    def __init__(self, ollama_model: str = "llama3", mcp_base_url: str = "http://127.0.0.1:5000"):
+    def __init__(self, ollama_model: str = "qwen3:0.6b", mcp_base_url: str = "http://127.0.0.1:5000", ollama_base_url: str = "http://127.0.01:11434"):
         self.ollama_model = ollama_model
         self.mcp_client = MCPClient(mcp_base_url)
-        print(f"Ollama Flight Agent initialized with model '{self.ollama_model}' and MCP server '{mcp_base_url}'")
+        self.ollama_base_url = ollama_base_url
+        ollama.configure(base_url=self.ollama_base_url)  # Configure Ollama to use the specified server
+        print(f"Ollama Flight Agent initialized with model '{self.ollama_model}', MCP server '{mcp_base_url}', and Ollama server '{self.ollama_base_url}'")
 
     def _extract_query_parameters(self, query: str) -> Dict:
         """
@@ -155,6 +157,17 @@ class OllamaFlightAgent:
 
 # Main execution
 if __name__ == "__main__":
+
+    models = ollama.list()
+    
+    model_names = [model['name'] for model in models]
+
+    if 'qwen3:0.6b' in model_names:
+        print("Model 'qwen3:0.6b' exists in the list.")
+    else:
+        ollama.pull('qwen3:0.6b')
+        print("Model 'qwen3:0.6b' does not exist in the list.")
+
     # Ensure your Ollama server is running and 'llama3' model is pulled.
     # Ensure your mcp_server.py is running on http://127.0.0.1:5000.
     
