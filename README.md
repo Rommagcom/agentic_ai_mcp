@@ -24,5 +24,51 @@ This project demonstrates the integration of **Ollama LLM** with the **MCP (Mode
 2. **Ollama Server**: Install and run the Ollama server locally. Pull the required model (e.g., `llama3`).
 3. **MCP Server**: Ensure the MCP server is running on `http://127.0.0.1:5000`.
 4. **Dependencies**: Install the required Python libraries:
+   ```
+   requirements.txt
+   ```
+
+---
+
+## Running with Docker 🐳
+This project includes a `docker-compose.yml` file for easy setup. To run the project using Docker:
+
+1. Build and start the services:
    ```bash
-   pip install requests
+   docker-compose up
+   ```
+2. Access the MCP server at `http://localhost:5000` and the Ollama server at `http://localhost:11434`.
+
+---
+
+## Example Queries 📝
+- "Show me flights for tomorrow."
+- "What flights are available this week?"
+- "Tell me about flight SU123 on 2025-06-05."
+- "Find flights from 2025-06-01 to 2025-06-07."
+
+---
+
+## File Structure 📂
+- **`ollama_agent.py`**: Main agent logic for processing user queries.
+- **`mcp_server.py`**: Simulated MCP server for handling flight data.
+- **`docker-compose.yml`**: Docker Compose configuration for running the project.
+- **`requirements.txt`**: List of dependencies.
+
+---
+
+## Future Enhancements 🌟
+- Add support for additional MCP endpoints.
+- Improve natural language understanding for complex queries.
+- Integrate real-time weather data for destinations.
+- Add authentication and security for MCP and Ollama endpoints.
+
+---
+
+## License 📜
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+
+---
+
+## Contributing 🤝
+Contributions are welcome! Feel free to submit issues or pull requests to improve the project.
