@@ -139,7 +139,9 @@ class MCPClient:
             response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
             
             response_data = response.json()
+            print(f"Response data: {response_data}")
             flight_details = response_data.get('flight') # Extract flight details from the response
+            print(f"Flight details: {flight_details}")
             metadata = response_data.get('metadata') # Extract metadata
 
             if metadata:

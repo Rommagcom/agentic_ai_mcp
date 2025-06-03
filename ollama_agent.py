@@ -58,7 +58,7 @@ class OllamaFlightAgent:
         example outputs:
         {{"dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD"}}
         {{"flightNumber": "KC851", "flightDate": "YYYY-MM-DD"}}
-        {{"origin": "NQZ", destination": "ALA"
+        {{"origin": "", destination": "ALA"
         {{}} (if no parameters found, implies today's date range by default)
 
         User query: "{query}"

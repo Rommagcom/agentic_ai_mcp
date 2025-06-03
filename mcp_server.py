@@ -47,6 +47,16 @@ def generate_dummy_flights(date_from, date_to):
                 "temperature": temperature
             })
         current_date += timedelta(days=1)
+
+        flights.append({
+            "flightId": random.randint(8, 10),  # Random flight ID
+            "flightNumber": "KC563",
+            "flightDate": current_date.isoformat(),
+            "origin": "ALA",
+            "destination": "NQZ",
+            "weather": "Sunny",
+            "temperature": "35°C"
+        })
     return flights
 
 @app.route('/get/flights/infos', methods=['POST'])
@@ -96,7 +106,10 @@ def get_flight_details():
     Endpoint to get specific flight details based on flight number and date or origin, destination, and date.
     Input: { "flightNumber": "SU123", "flightDate": "YYYY-MM-DD" }
            OR { "origin": "CityCode", "destination": "CityCode", "flightDate": "YYYY-MM-DD" }
-    Output: { "flightId": int, "flightNumber": string, "flightDate": datetime, "origin": string, "destination": string, "weather": string, "temperature": string }
+    Output: {
+        "flight": { "flightId": int, "flightNumber": string, "flightDate": datetime, "origin": string, "destination": string, "weather": string, "temperature": string },
+        "metadata": { "source": string, "retrievedAt": string }
+    }
     """
     data = request.get_json()
     if not data:
@@ -138,8 +151,17 @@ def get_flight_details():
         flight['weather'] = "Sunny"  # Example weather data
         flight['temperature'] = "25°C"  # Example temperature data
 
-    # Return the first matching flight (assuming one match is sufficient)
-    return jsonify(flights[0]), 200
+    # Prepare metadata
+    metadata = {
+        "source": "Simulated Flight Database",
+        "retrievedAt": datetime.now().isoformat()  # Current timestamp
+    }
+
+    # Return the first matching flight with metadata
+    return jsonify({
+        "flight": flights[0],
+        "metadata": metadata
+    }), 200
 
 
 if __name__ == '__main__':
