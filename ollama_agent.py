@@ -53,14 +53,17 @@ class OllamaFlightAgent:
         If only a date range is specified, extract 'dateFrom' and 'dateTo'.
         Prioritize specific flight details (ID or number/date) over date ranges if both are present.
         If no specific flight details or date range is specified, assume today as the date range.
+        Detect the language of the query.
 
         Output the extracted parameters in JSON format like this
         example outputs:
+        {{"language": "ru"}}
         {{"dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD"}}
         {{"flightNumber": "KC851", "flightDate": "YYYY-MM-DD"}}
         {{"origin": "", destination": "ALA"
         {{}} (if no parameters found, implies today's date range by default)
-
+       
+        
         User query: "{query}"
         """
 
@@ -79,6 +82,9 @@ class OllamaFlightAgent:
                 params['dateTo'] = datetime.strptime(params['dateTo'], '%Y-%m-%d').date()
             if 'flightDate' in params and isinstance(params['flightDate'], str):
                 params['flightDate'] = datetime.strptime(params['flightDate'], '%Y-%m-%d').date()
+
+            if 'language' in params and isinstance(params['language'], str):
+                params['language'] = params['language'].lower()
 
             # Default to today if no parameters found
             if not params:
@@ -108,12 +114,27 @@ class OllamaFlightAgent:
         else:
             return "Извините, я не смог понять ваш запрос. Пожалуйста, уточните, какие рейсы вы ищете (по дате, номеру рейса, городу отправления или назначения)."
 
+    def _get_weather_for_destination(self, destination: str, flight_date: date, language: str) -> str:
+        """
+        Fetches weather information for the destination city on the flight date.
+        """
+        print(f"Agent: Fetching weather for destination {destination} on {flight_date}...")
+        weather_data = self.mcp_client.get_weather(city=destination, language=language, weather_date=flight_date)
+
+        if weather_data:
+            return weather_data
+        else:
+            return "Погода: неизвестно, Температура: неизвестно"
+
     def _get_flight_details(self, params: Dict) -> str:
-        """Fetches specific flight details from the MCP server."""
+        """
+        Fetches specific flight details from the MCP server and includes weather information.
+        """
         flight_number = params.get('flightNumber')
         flight_date = params.get('flightDate')
         origin = params.get('origin')
         destination = params.get('destination')
+        language = params.get('language', 'ru')
 
         if flight_number and flight_date:
             print(f"Agent: Fetching flight details for Number: {flight_number}, Date: {flight_date}...")
@@ -126,12 +147,23 @@ class OllamaFlightAgent:
 
         if flight_data:
             flight_datetime = datetime.fromisoformat(flight_data['flightDate'])
-            return f"""
+            weather_info = self._get_weather_for_destination(flight_data['destination'], flight_date, language)
+            
+            resp_string =  f"""
             Информация о рейсе {flight_data['flightNumber']} (ID: {flight_data['flightId']}):
             Маршрут: {flight_data['origin']} -> {flight_data['destination']}
-            Дата и время: {flight_datetime.strftime('%Y-%m-%d %H:%M')}
-            Погода в пункте назначения: {flight_data['weather']}, Температура: {flight_data['temperature']}
+            Дата и время: {weather_info['location'].get('localtime', flight_datetime.strftime('%Y-%m-%d %H:%M'))}
+            Погода в пункте назначения:
+            {weather_info['current'].get('weather_descriptions', ["неизвестно"])[0]}\nТемпература: {weather_info['current'].get('temperature', 'неизвестно')} C"
             """
+
+            llm_prompt = f"""
+                #Translate current text {resp_string} to the current language: {language}. Do not translate coutry codes, airport codes, city codes leave it as is. Return only translated text.
+                #"""
+            print("Agent: Formatting response using Ollama...")
+            response_ollama = ollama.generate(model=self.ollama_model, prompt=llm_prompt, options={'temperature': 0.1})
+            return response_ollama.get('response', "Ошибка при форматировании ответа.")
+            #return resp_string
         else:
             return "Извините, не удалось найти информацию по указанному рейсу. Пожалуйста, проверьте данные и попробуйте снова."
 
@@ -197,7 +229,7 @@ def query():
     if "</think>" in response:
         response = response.split("</think>", 1)[1].strip()
 
-    return jsonify({"response": response})
+    return response #jsonify({"response": response})
     
 
 # Run the Flask app

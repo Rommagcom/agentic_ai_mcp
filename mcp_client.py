@@ -2,10 +2,18 @@
 import requests
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional, Tuple, Union
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class MCPClient:
     def __init__(self, base_url: str = "http://127.0.0.1:5000"):
         self.base_url = base_url
+        self.weather_api_key = os.getenv("WEATHER_API_KEY")  # Load API key from .env
+        if not self.weather_api_key:
+            raise ValueError("WEATHER_API_KEY is not set in the .env file.")
         # Initialize an in-memory cache for storing flight information
         # The key will be a tuple of (endpoint, date_from_iso, date_to_iso) or (endpoint, flight_id) etc.
         self.cache: Dict[Tuple, Union[List[Dict], Dict]] = {}
@@ -16,6 +24,58 @@ class MCPClient:
         # Sort params to ensure consistent cache key regardless of dict order
         sorted_params = tuple(sorted(params.items()))
         return (endpoint, sorted_params)
+    
+    def get_weather(self, city: str, language: str, weather_date: Optional[date] = None) -> Optional[Dict]:
+        """
+        Calls the weather API to retrieve weather information for a given city and date.
+        Includes caching mechanism to avoid redundant API calls for the same city and date.
+
+        Args:
+            city: The name of the city to get weather information for.
+            weather_date: The date for which weather information is requested (optional).
+
+        Returns:
+            A dictionary containing weather information on success, None on error.
+            Weather dict: { "city": string, "temperature": string, "condition": string, "date": string }
+        """
+        endpoint_path = f"/current?access_key={self.weather_api_key}&query={city}"
+        payload = {"city": city, "date": weather_date}
+        
+        # If a specific date is provided, add it to the payload
+        if weather_date:
+            payload["date"] = weather_date.isoformat()
+
+        cache_key = self._get_cache_key(endpoint_path, payload)
+
+        # 1. Check if the result is already in the cache
+        if cache_key in self.cache:
+            print(f"Cache hit for weather in {city} on {weather_date}. Returning cached data.")
+            return self.cache[cache_key]
+
+        # If not in cache, proceed with API call
+        full_endpoint_url = f"https://api.weatherstack.com{endpoint_path}"
+        headers = {"Content-Type": "application/json"}
+
+        try:
+            print(f"Making API call to {full_endpoint_url} with params {payload}...")
+            response = requests.get(full_endpoint_url)
+            response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
+            
+            weather_data_response = response.json()
+            print(f"Weather data received: {weather_data_response}")
+
+            # 1. Store the successful response in the cache
+            self.cache[cache_key] = weather_data_response
+            print(f"Successfully fetched and cached weather data for {city} on {weather_date}.")
+            return weather_data_response
+        except requests.exceptions.ConnectionError as e:
+            print(f"Error: Could not connect to weather API. {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"Error calling weather API: {e}")
+            if response:
+                print(f"Server response: {response.status_code} - {response.text}")
+            return None
 
     def clear_cache(self):
         """Clears the entire cache."""
