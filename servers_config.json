@@ -3,6 +3,10 @@
     "echo": {
       "command": "python",
       "args": ["mcp-servers/echo.py"]
+    },
+    "weather_server": {
+      "command": "python",
+      "args": ["mcp-servers/weather_server.py"]
     }
   }
 }

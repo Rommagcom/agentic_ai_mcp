@@ -29,3 +29,27 @@ This project is a chat assistant application that integrates MCP servers with an
 ## Example Interaction
 - You: echo test
 - Assistant: The result of the echo test is a text containing the message "This is echo test test".  
+
+- You: How is the weather in Phuket ?
+- Assistant: The weather in Phuket is currently being retrieved via the API, with the mock response indicating it's a simulated result.
+
+
+## Add your MCP server
+
+	1. Add to mcp-server folder new .py file as in example echo.py or weater_server.py
+	2. Add section to servers_config.json like where 'echo' is m tool name in .py file -> @mcp.tool(description="A simple echo tool", name="echo")
+	"args": ["mcp-servers/weather_server.py"] full server file path
+	
+	```Example:
+	{
+		"mcpServers": {
+			"echo": {
+				"command": "python",
+				"args": ["mcp-servers/echo.py"]
+			},
+			"weather_server": {
+				"command": "python",
+				"args": ["mcp-servers/weather_server.py"]
+			}
+		}
+	}
