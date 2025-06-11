@@ -1,4 +1,8 @@
-flask
-ollama
+python-dotenv
 requests
-python-dateutil
+pydantic-ai
+mcp>=1.0.0
+uvicorn
+anyio
+httpx
+ollama
