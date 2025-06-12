@@ -27,8 +27,8 @@ This project is a chat assistant application that integrates MCP client (MCP hos
    python mcp_sse_client.py
 
 ## Example Interaction
-- You: echo test
-- Assistant: The result of the echo test is a text containing the message "This is echo test test".  
+- You: echo test (After this request LLM determine to call neccessery Tool from MCP server)
+- Assistant: The result of the echo test is a text containing the message "This is echo test test". (Direct answer from MCP server)
 
 - You: How is the weather in Phuket ?
 - Assistant: The weather in Phuket is currently being retrieved via the API, with the mock response indicating it's a simulated result.
