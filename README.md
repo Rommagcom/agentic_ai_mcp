@@ -5,13 +5,13 @@ This project is a chat assistant application that integrates MCP client (MCP hos
 ## Features
 
 - **LLM Integration**: Communicates with an LLM using the `pydantic-ai` library.
-- **Tool Execution**: Supports external tools that can be executed based on user input.
+- **Tool Execution**: Supports external tools - MCP servers that can be executed based on user input.
 - **Structured Responses**: Handles structured responses from the LLM, including tool calls and direct answers.
 - **Server Management**: Manages multiple MCP servers for tool execution.
 
 ## Requirements
 
-- Python 3.9 or higher
+- Python 3.11 or higher
 - MCP server(s) configured for tool execution
 - LLM used local installed Ollama with qwen3:0.6b
 - .env LLM_API_KEY=your-api-key-here if exteral LLM used
