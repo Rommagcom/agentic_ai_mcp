@@ -4,7 +4,7 @@ This project is a chat assistant application that integrates MCP client (MCP hos
 
 # Supported modes
  - stdio Mode
- - http Mode - Under development
+ - http Mode
 ## Features
 
 - **LLM Integration**: Communicates with an LLM using the `pydantic-ai` library.
@@ -14,7 +14,7 @@ This project is a chat assistant application that integrates MCP client (MCP hos
 
 ## Requirements
 
-- Python 3.11 or higher
+- Python 3.13 or higher
 - MCP server(s) configured for tool execution
 - LLM used local installed Ollama with qwen3:0.6b - You can change it if needed (https://ollama.com - instruction how to.)
 - .env LLM_API_KEY=your-api-key-here if exteral LLM used
@@ -23,13 +23,17 @@ This project is a chat assistant application that integrates MCP client (MCP hos
 To execute demo MCP servers from 'mcp-servers' folder
 1.FatMCP - https://github.com/modelcontextprotocol/python-sdk?tab=readme-ov-file#adding-mcp-to-your-python-project 
 - More information about FastMCP -> https://gofastmcp.com/getting-started/welcome
+
 2. Clone the repository:
    ```bash
    git clone https://github.com/Rommagcom/agentic_ai_mcp.git
    cd agentic_ai_mcp
 
    pip install -r requirements.txt
-   python mcp_sse_client.py
+   python mcp_host_client.py
+
+3. To test http Mode:
+	- run file from folder mcp-servers/test_http_server.py -  python mcp-servers/test_http_server.py
 
 ## Interaction Example
 - You: echo test (After this request LLM determine to call neccessery Tool from MCP server)
@@ -41,7 +45,7 @@ To execute demo MCP servers from 'mcp-servers' folder
 
 ## Add your MCP server
 
-	1. Add to mcp-server folder new .py file as in example echo.py or weater_server.py
+	1. Add to mcp-server folder new .py file like in examples echo.py or weater_server.py or test_http_server.py
 	2. Add section to servers_config.json like where 'echo' is tool name in .py file -> @mcp.tool(description="A simple echo tool", name="echo")
 	"args": ["mcp-servers/weather_server.py"] full server file path
 	
@@ -56,5 +60,16 @@ To execute demo MCP servers from 'mcp-servers' folder
 				"command": "python",
 				"args": ["mcp-servers/weather_server.py"]
 			}
+		}
+	}
+
+	For http use case add http(s) MCP server url to config as: "url": "http://127.0.0.1:9000/mcp" and server name like "test_http" as in :
+
+	```Example:
+	{
+		"mcpServers": {
+			"test_http": {
+      			"url": "http://127.0.0.1:9000/mcp"
+    		}
 		}
 	}

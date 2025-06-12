@@ -7,6 +7,9 @@
     "weather_server": {
       "command": "python",
       "args": ["mcp-servers/weather_server.py"]
+    },
+    "test_http": {
+      "url": "http://127.0.0.1:9000/mcp"
     }
   }
 }
