@@ -1,6 +1,6 @@
 # LLM Chat Assistant
 
-This project is a chat assistant application that integrates MCP servers with an LLM (Large Language Model) and external tools (MCP Servers). It allows users to interact with the LLM, which can either provide direct answers or call external tools to process user requests.
+This project is a chat assistant application that integrates MCP client (MCP host) with an LLM (Large Language Model) and external tools (MCP Servers). It allows users to interact with the LLM, which can either provide direct answers or call external tools (MCP servers) to process user requests.
 
 ## Features
 
