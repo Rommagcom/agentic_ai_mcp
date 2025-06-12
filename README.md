@@ -26,7 +26,7 @@ This project is a chat assistant application that integrates MCP client (MCP hos
    pip install -r requirements.txt
    python mcp_sse_client.py
 
-## Example Interaction
+## Interaction Example
 - You: echo test (After this request LLM determine to call neccessery Tool from MCP server)
 - Assistant: The result of the echo test is a text containing the message "This is echo test test". (Direct answer from MCP server)
 
