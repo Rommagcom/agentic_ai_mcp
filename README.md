@@ -17,15 +17,15 @@ This project is a chat assistant application that integrates MCP client (MCP hos
 
 - Python 3.11 or higher
 - MCP server(s) configured for tool execution
-- LLM used local installed Ollama with qwen3:0.6b
+- LLM used local installed Ollama with qwen3:0.6b - You can change it if needed (https://ollama.com - instruction how to.)
 - .env LLM_API_KEY=your-api-key-here if exteral LLM used
 
 ## Installation
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
-   cd <repository-folder>
+   git clone https://github.com/Rommagcom/agentic_ai_mcp.git
+   cd agentic_ai_mcp
 
    pip install -r requirements.txt
    python mcp_sse_client.py
