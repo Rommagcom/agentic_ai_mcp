@@ -2,6 +2,9 @@
 
 This project is a chat assistant application that integrates MCP client (MCP host) with an LLM (Large Language Model) and external tools (MCP Servers). It allows users to interact with the LLM, which can either provide direct answers or call external tools (MCP servers) to process user requests.
 
+# Supported modes
+ - stdio Mode
+ - SSE (Server-Sent Events) Mode - Under development
 ## Features
 
 - **LLM Integration**: Communicates with an LLM using the `pydantic-ai` library.
