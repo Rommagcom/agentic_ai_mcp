@@ -21,8 +21,9 @@ This project is a chat assistant application that integrates MCP client (MCP hos
 - .env LLM_API_KEY=your-api-key-here if exteral LLM used
 
 ## Installation
-
-1. Clone the repository:
+To execute demo MCP servers from 'mcp-servers' folder
+1.FatMCP - https://github.com/modelcontextprotocol/python-sdk?tab=readme-ov-file#adding-mcp-to-your-python-project 
+2. Clone the repository:
    ```bash
    git clone https://github.com/Rommagcom/agentic_ai_mcp.git
    cd agentic_ai_mcp
