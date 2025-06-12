@@ -5,6 +5,7 @@ This project is a chat assistant application that integrates MCP client (MCP hos
 # Supported modes
  - stdio Mode
  - SSE (Server-Sent Events) Mode - Under development
+ - http Mode - Under development
 ## Features
 
 - **LLM Integration**: Communicates with an LLM using the `pydantic-ai` library.
