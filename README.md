@@ -23,6 +23,7 @@ This project is a chat assistant application that integrates MCP client (MCP hos
 ## Installation
 To execute demo MCP servers from 'mcp-servers' folder
 1.FatMCP - https://github.com/modelcontextprotocol/python-sdk?tab=readme-ov-file#adding-mcp-to-your-python-project 
+- More information about FastMCP -> https://gofastmcp.com/getting-started/welcome
 2. Clone the repository:
    ```bash
    git clone https://github.com/Rommagcom/agentic_ai_mcp.git
