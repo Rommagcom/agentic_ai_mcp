@@ -37,7 +37,7 @@ This project is a chat assistant application that integrates MCP client (MCP hos
 ## Add your MCP server
 
 	1. Add to mcp-server folder new .py file as in example echo.py or weater_server.py
-	2. Add section to servers_config.json like where 'echo' is m tool name in .py file -> @mcp.tool(description="A simple echo tool", name="echo")
+	2. Add section to servers_config.json like where 'echo' is tool name in .py file -> @mcp.tool(description="A simple echo tool", name="echo")
 	"args": ["mcp-servers/weather_server.py"] full server file path
 	
 	```Example:
