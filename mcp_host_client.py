@@ -6,7 +6,7 @@ import re
 import shutil
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional
-
+import httpx
 import pydantic_ai
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
@@ -25,6 +25,29 @@ logging.basicConfig(
     level=logging.ERROR, # Set to INFO for debugging, ERROR for production
     format="%(asctime)s - %(levelname)s - %(message)s" # Ensure logs go to stdout, not just stderr by default
 )
+
+async def is_server_available(url: str) -> bool:
+    """
+    Checks if the given URL is available.
+
+    Args:
+        url: The URL to check.
+
+    Returns:
+        True if the server is available, False otherwise.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=5)
+            if response:
+                logging.info(f"Server {url} is available.")
+                return True
+            else:
+                logging.warning(f"Server {url} returned status code {response.status_code}.")
+                return False
+    except httpx.RequestError as e:
+        logging.error(f"Error checking server availability: {e}")
+        return False
 
 # --- Configuration ---
 class AppConfiguration:
@@ -154,6 +177,7 @@ class ServerManager:
         )
         
         url = self.config.get("url", None)
+        
 
         if url:
             logging.info(f"Using URL for server {self.name}: {url}")
@@ -180,15 +204,20 @@ class ServerManager:
                 await self._session.initialize()
                 
             else:
-                logging.info(f"Using streamable HTTP transport for server {self.name}.")
-
-                read_stream, write_stream, _ = await self._exit_stack.enter_async_context(
-                    streamablehttp_client(url)
-                )
-                self._session = await self._exit_stack.enter_async_context(
-                    ClientSession(read_stream, write_stream)
-                )
-                await self._session.initialize()
+                # Check if the server is available
+                if not await is_server_available(url):
+                    logging.error(f"Server {url} is not available.")
+                    self._session = None
+                else:
+                    logging.info(f"Using streamable HTTP transport for server {self.name}.")
+    
+                    read_stream, write_stream, _ = await self._exit_stack.enter_async_context(
+                        streamablehttp_client(url)
+                    )
+                    self._session = await self._exit_stack.enter_async_context(
+                        ClientSession(read_stream, write_stream)
+                    )
+                    await self._session.initialize()
 
             logging.info(f"Server {self.name} initialized successfully.")
         except Exception as e:
